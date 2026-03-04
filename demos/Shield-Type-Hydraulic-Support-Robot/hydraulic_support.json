@@ -1,0 +1,246 @@
+{
+	"name": "机器人测试模型",
+	"links": [
+
+		{
+			"name": "r",
+			"origin_translation": [0, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "box",
+					"x": 2.8284,
+					"y": 0.25,
+					"z": 0.5
+				},
+				"material": {
+					"color": [140, 80, 0]
+				}
+			}
+		},
+
+		{
+			"name": "up",
+			"origin_translation": [0, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "box",
+					"x": 4,
+					"y": 0.25,
+					"z": 0.5
+				},
+				"material": {
+					"color": [0, 80, 140]
+				}
+			}
+		},
+
+		{
+			"name": "l",
+			"origin_translation": [0, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "box",
+					"x": 2.236,
+					"y": 0.25,
+					"z": 0.5
+				},
+				"material": {
+					"color": [80, 40, 80]
+				}
+			}
+		},
+
+		{
+			"name": "head",
+			"origin_translation": [0, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "box",
+					"x": 5,
+					"y": 0.25,
+					"z": 0.5
+				},
+				"material": {
+					"color": [0, 140, 80]
+				}
+			}
+		}
+	],
+
+	"joints": [
+		
+		{
+			"name": "joint_base_r",
+			"parent": "base_link",
+			"child": "r",
+			"type": "revolute",
+			"origin_translation": [0, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"axis": [0, 0, 1],
+			"limit": {
+				"lower": 0,
+				"upper": 3.14
+			}
+		},
+
+		{
+			"name": "joint_r_up",
+			"parent": "r",
+			"child": "up",
+			"type": "revolute",
+			"origin_translation": [2.8284, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"axis": [0, 0, 1],
+			"limit": {
+				"lower": 0,
+				"upper": 3.14
+			}
+		},
+
+		{
+			"name": "joint_up_l",
+			"parent": "up",
+			"child": "l",
+			"type": "revolute",
+			"origin_translation": [1, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"axis": [0, 0, 1],
+			"limit": {
+				"lower": 0,
+				"upper": 3.14
+			}
+		},
+
+		{
+			"name": "joint_l_base",
+			"parent": "l",
+			"child": "base_link",
+			"type": "revolute",
+			"origin_translation": [-1, 2, 0],
+			"origin_orientation": [0, 0, 0],
+			"axis": [0, 0, 1],
+			"limit": {
+				"lower": 0,
+				"upper": 3.14
+			}
+		},
+
+
+		{
+			"name": "joint_up_head",
+			"parent": "up",
+			"child": "head",
+			"type": "revolute",
+			"origin_translation": [4, 0, 0],
+			"origin_orientation": [0, 0, 1],
+			"axis": [0, 0, 1],
+			"limit": {
+				"lower": 0,
+				"upper": 3.14
+			}
+		}
+
+
+
+	],
+
+	"actuators": [
+
+		{
+			"name": "hydraulic_cylinder_1",
+			"type": "actuator",
+			"tube_parent": "base_link",
+			"rod_parent": "head",
+			"tube_offset": [-2, 1, 0],
+			"rod_offset": [2, 0, 0],
+			"limit": {
+				"lower": 4,
+				"upper": 6.0
+			},
+			"tube_visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "cylinder",
+					"r1": 0.2,
+					"r2": 0.2,
+					"h": 4
+				},
+				"material": {
+					"color": [140, 10, 0]
+				}
+			},
+			"rod_visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "cylinder",
+					"r1": 0.13,
+					"r2": 0.13,
+					"h": 4
+				},
+				"material": {
+					"color": [80, 80, 80]
+				}
+			}
+		},
+
+		{
+			"name": "hydraulic_cylinder_2",
+			"type": "actuator",
+			"tube_parent": "up",
+			"rod_parent": "head",
+			"tube_offset": [3, 0, 0],
+			"rod_offset": [1, 0, 0],
+			"limit": {
+				"lower": 1.2,
+				"upper": 1.9
+			},
+			"tube_visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "cylinder",
+					"r1": 0.1,
+					"r2": 0.1,
+					"h": 1
+				},
+				"material": {
+					"color": [140, 10, 0]
+				}
+			},
+			"rod_visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "cylinder",
+					"r1": 0.05,
+					"r2": 0.05,
+					"h": 1
+				},
+				"material": {
+					"color": [80, 80, 80]
+				}
+			}
+		}
+
+
+	],
+
+	"redundants": [
+
+	]
+
+}
