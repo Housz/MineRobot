@@ -1,0 +1,128 @@
+<mujoco model="four_bar_mujoco_fk">
+  <compiler angle="radian"/>
+  <option gravity="0 0 0" timestep="0.001"/>
+
+  <default>
+    <joint damping="0.1" armature="0.001"/>
+    <geom type="capsule" size="0.025" rgba="0.7 0.7 0.7 1"/>
+    <site size="0.01" rgba="1 1 0 1"/>
+  </default>
+
+  <worldbody>
+    <body name="ground" pos="0 0 0">
+      <geom type="box" pos="2.5 0 0" size="2.5 0.05 0.05" rgba="0.35 0.35 0.35 1"/>
+
+      <site name="ground_af0" pos="0 0 2"/>
+      <site name="ground_af1" pos="0 0 -2"/>
+      <site name="ground_ab0" pos="2.186792 0 2"/>
+      <site name="ground_ab1" pos="2.186792 0 -2"/>
+
+      <body name="crank" pos="3.28661 1.962118 0">
+        <joint name="crank_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+        <geom fromto="0 0 0 2.044407 2.111437 0" rgba="0.85 0.25 0.25 1"/>
+
+        <body name="coupler" pos="2.044407 2.111437 0">
+          <joint name="coupler_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+          <geom fromto="0 0 0 0.410557 -0.58651 0" rgba="0.2 0.7 0.9 1"/>
+          <geom fromto="0 0 0 -1.390797 2.062341999 0" rgba="0.2 0.7 0.9 1"/>
+          <site name="coupler_pin_rocker" pos="0.410557 -0.58651 0"/>
+
+          <body name="top" pos="-1.390797 2.062341999 0">
+            <joint name="top_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+            <geom fromto="0 0 0 -4.991705 0.10115 0" rgba="0.95 0.75 0.2 1"/>
+            <geom fromto="0 0 0 -1.381983 0.028004001 0" rgba="0.95 0.75 0.2 1"/>
+            <site name="top_anchor_af0" pos="-4.991705 0.10115 2"/>
+            <site name="top_anchor_af1" pos="-4.991705 0.10115 -2"/>
+            <site name="top_anchor_ab0" pos="-1.381983 0.028004001 2"/>
+            <site name="top_anchor_ab1" pos="-1.381983 0.028004001 -2"/>
+            <site name="top_ee" pos="0 0 0"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="rocker" pos="4.59369 1.459396 0">
+        <joint name="rocker_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+        <geom fromto="0 0 0 1.147884 2.027649 0" rgba="0.2 0.85 0.35 1"/>
+        <site name="rocker_pin_coupler" pos="1.147884 2.027649 0"/>
+      </body>
+
+      <body name="Af0_yaw" pos="0 0 2" quat="0.6456620139765598 0 0 0.763623312705769">
+        <inertial pos="0 0 0" mass="0.1" diaginertia="1e-4 1e-4 1e-4"/>
+        <joint name="Af0_base_yaw_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+        <body name="Af0_tube">
+          <joint name="Af0_base_pitch_joint" type="hinge" axis="0 1 0" range="-1.5707963267 1.5707963267" ref="0"/>
+          <geom fromto="0 0 0 1.8 0 0" size="0.05" rgba="0.25 0.25 0.25 1"/>
+          <body name="Af0_rod" pos="5.125059366158866 0 0">
+            <joint name="Af0_slide_joint" type="slide" axis="1 0 0" range="-5.125059366158866 2.874940633841134" ref="0"/>
+            <geom fromto="0 0 0 1.2 0 0" size="0.03" rgba="0.9 0.9 0.9 1"/>
+            <site name="Af0_rod_tip" pos="1.2 0 0"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="Af1_yaw" pos="0 0 -2" quat="0.6456620139765598 0 0 0.763623312705769">
+        <inertial pos="0 0 0" mass="0.1" diaginertia="1e-4 1e-4 1e-4"/>
+        <joint name="Af1_base_yaw_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+        <body name="Af1_tube">
+          <joint name="Af1_base_pitch_joint" type="hinge" axis="0 1 0" range="-1.5707963267 1.5707963267" ref="0"/>
+          <geom fromto="0 0 0 1.8 0 0" size="0.05" rgba="0.25 0.25 0.25 1"/>
+          <body name="Af1_rod" pos="5.125059366158866 0 0">
+            <joint name="Af1_slide_joint" type="slide" axis="1 0 0" range="-5.125059366158866 2.874940633841134" ref="0"/>
+            <geom fromto="0 0 0 1.2 0 0" size="0.03" rgba="0.9 0.9 0.9 1"/>
+            <site name="Af1_rod_tip" pos="1.2 0 0"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="Ab0_yaw" pos="2.186792 0 2" quat="0.7280632631794374 0 0 0.685509945083592">
+        <inertial pos="0 0 0" mass="0.1" diaginertia="1e-4 1e-4 1e-4"/>
+        <joint name="Ab0_base_yaw_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+        <body name="Ab0_tube">
+          <joint name="Ab0_base_pitch_joint" type="hinge" axis="0 1 0" range="-1.5707963267 1.5707963267" ref="0"/>
+          <geom fromto="0 0 0 1.8 0 0" size="0.05" rgba="0.25 0.25 0.25 1"/>
+          <body name="Ab0_rod" pos="4.975082746476033 0 0">
+            <joint name="Ab0_slide_joint" type="slide" axis="1 0 0" range="-4.975082746476033 3.024917253523967" ref="0"/>
+            <geom fromto="0 0 0 1.2 0 0" size="0.03" rgba="0.9 0.9 0.9 1"/>
+            <site name="Ab0_rod_tip" pos="1.2 0 0"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="Ab1_yaw" pos="2.186792 0 -2" quat="0.7280632631794374 0 0 0.685509945083592">
+        <inertial pos="0 0 0" mass="0.1" diaginertia="1e-4 1e-4 1e-4"/>
+        <joint name="Ab1_base_yaw_joint" type="hinge" axis="0 0 1" range="-3.1415926535 3.1415926535" ref="0"/>
+        <body name="Ab1_tube">
+          <joint name="Ab1_base_pitch_joint" type="hinge" axis="0 1 0" range="-1.5707963267 1.5707963267" ref="0"/>
+          <geom fromto="0 0 0 1.8 0 0" size="0.05" rgba="0.25 0.25 0.25 1"/>
+          <body name="Ab1_rod" pos="4.975082746476033 0 0">
+            <joint name="Ab1_slide_joint" type="slide" axis="1 0 0" range="-4.975082746476033 3.024917253523967" ref="0"/>
+            <geom fromto="0 0 0 1.2 0 0" size="0.03" rgba="0.9 0.9 0.9 1"/>
+            <site name="Ab1_rod_tip" pos="1.2 0 0"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <equality>
+    <connect name="loop_coupler_rocker" body1="coupler" body2="rocker"
+             anchor="0.410557 -0.58651 0" solref="0.0005 1" solimp="0.97 0.995 0.0001"/>
+
+    <connect name="af0_tip_to_top" body1="Af0_rod" body2="top"
+             anchor="1.2 0 0" solref="0.0005 1" solimp="0.97 0.995 0.0001"/>
+    <connect name="af1_tip_to_top" body1="Af1_rod" body2="top"
+             anchor="1.2 0 0" solref="0.0005 1" solimp="0.97 0.995 0.0001"/>
+    <connect name="ab0_tip_to_top" body1="Ab0_rod" body2="top"
+             anchor="1.2 0 0" solref="0.0005 1" solimp="0.97 0.995 0.0001"/>
+    <connect name="ab1_tip_to_top" body1="Ab1_rod" body2="top"
+             anchor="1.2 0 0" solref="0.0005 1" solimp="0.97 0.995 0.0001"/>
+  </equality>
+
+  <contact>
+    <exclude body1="coupler" body2="rocker"/>
+    <exclude body1="Af0_rod" body2="top"/>
+    <exclude body1="Af1_rod" body2="top"/>
+    <exclude body1="Ab0_rod" body2="top"/>
+    <exclude body1="Ab1_rod" body2="top"/>
+  </contact>
+</mujoco>

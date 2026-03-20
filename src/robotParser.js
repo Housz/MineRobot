@@ -24,17 +24,183 @@ function rotateArray(arr, startIndex) {
 	return arr.map((_, i) => arr[(startIndex + i) % arr.length]);
 }
 
-function detectAutoFourBarLoops(jointDatas) {
+function getVec3Length(value) {
+	const [x, y, z] = toVec3Array(value, [0, 0, 0]);
+	return Math.sqrt(x * x + y * y + z * z);
+}
+
+function buildRevoluteJointGraph(jointDatas) {
 	const revoluteJoints = jointDatas.filter((joint) => joint.type === 'revolute');
 	const outgoing = new Map();
+	const edgeMap = new Map();
+	const links = new Set();
 
 	revoluteJoints.forEach((joint) => {
+		links.add(joint.parent);
+		links.add(joint.child);
+
 		if (!outgoing.has(joint.parent)) {
 			outgoing.set(joint.parent, []);
 		}
 		outgoing.get(joint.parent).push(joint);
+
+		if (!outgoing.has(joint.child)) {
+			outgoing.set(joint.child, []);
+		}
+
+		const edgeKey = `${joint.parent}->${joint.child}`;
+		if (!edgeMap.has(edgeKey)) {
+			edgeMap.set(edgeKey, []);
+		}
+		edgeMap.get(edgeKey).push(joint);
 	});
 
+	return { revoluteJoints, outgoing, edgeMap, links };
+}
+
+function findStronglyConnectedComponents(jointDatas) {
+	const { outgoing, links } = buildRevoluteJointGraph(jointDatas);
+	const indexMap = new Map();
+	const lowLinkMap = new Map();
+	const stack = [];
+	const onStack = new Set();
+	const components = [];
+	let index = 0;
+
+	function strongConnect(linkName) {
+		indexMap.set(linkName, index);
+		lowLinkMap.set(linkName, index);
+		index += 1;
+		stack.push(linkName);
+		onStack.add(linkName);
+
+		for (const joint of outgoing.get(linkName) ?? []) {
+			const nextLink = joint.child;
+			if (!indexMap.has(nextLink)) {
+				strongConnect(nextLink);
+				lowLinkMap.set(
+					linkName,
+					Math.min(lowLinkMap.get(linkName), lowLinkMap.get(nextLink)),
+				);
+			}
+			else if (onStack.has(nextLink)) {
+				lowLinkMap.set(
+					linkName,
+					Math.min(lowLinkMap.get(linkName), indexMap.get(nextLink)),
+				);
+			}
+		}
+
+		if (lowLinkMap.get(linkName) === indexMap.get(linkName)) {
+			const component = [];
+			while (stack.length > 0) {
+				const popped = stack.pop();
+				onStack.delete(popped);
+				component.push(popped);
+				if (popped === linkName) {
+					break;
+				}
+			}
+
+			if (component.length > 1) {
+				components.push(component);
+			}
+		}
+	}
+
+	for (const linkName of links) {
+		if (!indexMap.has(linkName)) {
+			strongConnect(linkName);
+		}
+	}
+
+	return components;
+}
+
+function detectBidirectionalFourBarLoops(jointDatas) {
+	const { outgoing, edgeMap } = buildRevoluteJointGraph(jointDatas);
+	const components = findStronglyConnectedComponents(jointDatas);
+	const loops = [];
+	const seen = new Set();
+
+	components.forEach((component) => {
+		const componentSet = new Set(component);
+		const groundCandidates = componentSet.has('ground')
+			? ['ground']
+			: componentSet.has('base_link')
+				? ['base_link']
+				: component;
+
+		groundCandidates.forEach((groundLink) => {
+			for (const j0 of outgoing.get(groundLink) ?? []) {
+				if (!componentSet.has(j0.child) || j0.child === groundLink) {
+					continue;
+				}
+				const l1 = j0.child;
+
+				for (const j1 of outgoing.get(l1) ?? []) {
+					if (!componentSet.has(j1.child)) {
+						continue;
+					}
+
+					const l2 = j1.child;
+					if (l2 === groundLink || l2 === l1) {
+						continue;
+					}
+
+					for (const j2 of outgoing.get(l2) ?? []) {
+						if (!componentSet.has(j2.child)) {
+							continue;
+						}
+
+						const l3 = j2.child;
+						if (l3 === groundLink || l3 === l1 || l3 === l2) {
+							continue;
+						}
+
+						const drivenClosingJoints = edgeMap.get(`${l3}->${groundLink}`) ?? [];
+						const groundClosingJoints = edgeMap.get(`${groundLink}->${l3}`) ?? [];
+
+						if (drivenClosingJoints.length === 0 || groundClosingJoints.length === 0) {
+							continue;
+						}
+
+						groundClosingJoints.forEach((groundClosingJoint) => {
+							drivenClosingJoints.forEach((drivenClosingJoint) => {
+								const key = [
+									j0.name,
+									j1.name,
+									j2.name,
+									groundClosingJoint.name,
+									drivenClosingJoint.name,
+								].sort().join('|');
+
+								if (seen.has(key)) {
+									return;
+								}
+								seen.add(key);
+
+								loops.push({
+									links: [groundLink, l1, l2, l3],
+									pathJoints: [j0, j1, j2],
+									closingJoints: {
+										ground: groundClosingJoint,
+										driven: drivenClosingJoint,
+									},
+								});
+							});
+						});
+					}
+				}
+			}
+		});
+	});
+
+	return loops;
+}
+
+function detectLegacyFourBarLoops(jointDatas) {
+	const { revoluteJoints, outgoing } = buildRevoluteJointGraph(jointDatas);
 	const loops = [];
 	const seen = new Set();
 
@@ -77,7 +243,11 @@ function detectAutoFourBarLoops(jointDatas) {
 
 					const links = [l0, l1, l2, l3];
 					const joints = [j0, j1, j2, j3];
-					const groundLink = links.includes('base_link') ? 'base_link' : links[0];
+					const groundLink = links.includes('ground')
+						? 'ground'
+						: links.includes('base_link')
+							? 'base_link'
+							: links[0];
 					const startIndex = links.indexOf(groundLink);
 
 					loops.push({
@@ -93,14 +263,29 @@ function detectAutoFourBarLoops(jointDatas) {
 }
 
 function buildAutoFourBarConstraint(loop, index) {
+	if (loop.closingJoints) {
+		const groundAnchor = toVec3Array(loop.closingJoints.ground.origin_translation, [0, 0, 0]);
+		const drivenAnchor = toVec3Array(loop.closingJoints.driven.origin_translation, [0, 0, 0]);
+
+		return {
+			name: `fourbar_auto_${index}`,
+			type: 'four-bar',
+			joint: loop.pathJoints[2].name,
+			ground: loop.links[0],
+			ground_closing_joint: loop.closingJoints.ground.name,
+			driven_closing_joint: loop.closingJoints.driven.name,
+			gound_offset: groundAnchor,
+			length: getVec3Length(drivenAnchor),
+			init_angle: 1.2,
+			removedJointNames: [
+				loop.closingJoints.ground.name,
+				loop.closingJoints.driven.name,
+			],
+		};
+	}
+
 	const closingJoint = loop.joints[3];
 	const groundOffset = toVec3Array(closingJoint.origin_translation, [0, 0, 0]);
-
-	const drivenLength = Math.sqrt(
-		groundOffset[0] * groundOffset[0]
-		+ groundOffset[1] * groundOffset[1]
-		+ groundOffset[2] * groundOffset[2],
-	);
 
 	return {
 		name: `fourbar_auto_${index}`,
@@ -108,10 +293,177 @@ function buildAutoFourBarConstraint(loop, index) {
 		joint: loop.joints[2].name,
 		ground: loop.links[0],
 		gound_offset: groundOffset,
-		length: drivenLength,
-		init_angle: 1.0,
-		closingJointName: closingJoint.name,
+		length: getVec3Length(groundOffset),
+		init_angle: 1.2,
+		removedJointNames: [closingJoint.name],
 	};
+}
+
+function getRemovedJointNamesForFourBarConstraint(constraintData) {
+	if (constraintData.type !== 'four-bar') {
+		return [];
+	}
+
+	const removedJointNames = [];
+	if (constraintData.ground_closing_joint) {
+		removedJointNames.push(constraintData.ground_closing_joint);
+	}
+	if (constraintData.driven_closing_joint) {
+		removedJointNames.push(constraintData.driven_closing_joint);
+	}
+
+	return removedJointNames;
+}
+
+function getJointDataByName(jointDatas, jointName) {
+	for (let i = 0; i < jointDatas.length; i++) {
+		if (jointDatas[i].name === jointName) {
+			return jointDatas[i];
+		}
+	}
+
+	return null;
+}
+
+function resolveFourBarConstraintGeometry(constraintData, allJointDatas) {
+	const groundClosingJointData = constraintData.ground_closing_joint
+		? getJointDataByName(allJointDatas, constraintData.ground_closing_joint)
+		: null;
+	const drivenClosingJointData = constraintData.driven_closing_joint
+		? getJointDataByName(allJointDatas, constraintData.driven_closing_joint)
+		: null;
+
+	let groundOffset = constraintData.gound_offset
+		? toVec3Array(constraintData.gound_offset, [0, 0, 0])
+		: null;
+	if (!groundOffset && groundClosingJointData) {
+		groundOffset = toVec3Array(groundClosingJointData.origin_translation, [0, 0, 0]);
+	}
+	if (!groundOffset && drivenClosingJointData) {
+		groundOffset = toVec3Array(drivenClosingJointData.origin_translation, [0, 0, 0]);
+	}
+
+	let length = Number(constraintData.length);
+	if (!Number.isFinite(length)) {
+		if (drivenClosingJointData) {
+			length = getVec3Length(drivenClosingJointData.origin_translation);
+		}
+		else if (groundOffset) {
+			length = getVec3Length(groundOffset);
+		}
+	}
+
+	return {
+		groundOffset: groundOffset ?? [0, 0, 0],
+		length,
+		groundClosingJoint: constraintData.ground_closing_joint ?? null,
+		drivenClosingJoint: constraintData.driven_closing_joint ?? null,
+	};
+}
+
+function buildRedundantActuatorGroups(actuators) {
+	const adjacency = new Map();
+
+	actuators.forEach((actuator) => {
+		adjacency.set(actuator.name, new Set());
+	});
+
+	actuators.forEach((actuator) => {
+		(actuator.redundants || []).forEach((redundantName) => {
+			if (!adjacency.has(redundantName)) {
+				return;
+			}
+
+			adjacency.get(actuator.name).add(redundantName);
+			adjacency.get(redundantName).add(actuator.name);
+		});
+	});
+
+	const groups = [];
+	const groupMap = new Map();
+	const representativeMap = new Map();
+	const visited = new Set();
+
+	actuators.forEach((actuator) => {
+		if (visited.has(actuator.name)) {
+			return;
+		}
+
+		const stack = [actuator.name];
+		const members = [];
+
+		while (stack.length > 0) {
+			const currName = stack.pop();
+			if (visited.has(currName)) {
+				continue;
+			}
+
+			visited.add(currName);
+			members.push(currName);
+
+			for (const nextName of adjacency.get(currName) || []) {
+				if (!visited.has(nextName)) {
+					stack.push(nextName);
+				}
+			}
+		}
+
+		const group = {
+			name: `redundant_group_${groups.length + 1}`,
+			representative: members[0],
+			actuators: members,
+		};
+
+		groups.push(group);
+		members.forEach((memberName) => {
+			groupMap.set(memberName, group);
+			representativeMap.set(memberName, group.representative);
+		});
+	});
+
+	return { groups, groupMap, representativeMap };
+}
+
+function buildSolverActuators(robot) {
+	const solverActuators = [];
+	const solverMap = new Map();
+	const actuatorSolverNameMap = new Map();
+
+	robot.redundantActuatorGroups.forEach((group) => {
+		const representativeActuator = robot.actuatorMap.get(group.representative);
+		if (!representativeActuator) {
+			return;
+		}
+
+		const hasRedundancy = group.actuators.length > 1;
+		const solverName = `solver_${group.name}`;
+		const solverActuator = {
+			name: solverName,
+			group: group.name,
+			sourceActuator: representativeActuator.name,
+			tube_parent: representativeActuator.tube_parent,
+			rod_parent: representativeActuator.rod_parent,
+			tube_offset: new _Translation(
+				representativeActuator.tube_offset.x,
+				representativeActuator.tube_offset.y,
+				hasRedundancy ? 0 : representativeActuator.tube_offset.z,
+			),
+			rod_offset: new _Translation(
+				representativeActuator.rod_offset.x,
+				representativeActuator.rod_offset.y,
+				hasRedundancy ? 0 : representativeActuator.rod_offset.z,
+			),
+		};
+
+		solverActuators.push(solverActuator);
+		solverMap.set(solverName, solverActuator);
+
+		group.actuators.forEach((actuatorName) => {
+			actuatorSolverNameMap.set(actuatorName, solverName);
+		});
+	});
+
+	return { solverActuators, solverMap, actuatorSolverNameMap };
 }
 
 function robotParser(robotJson) {
@@ -137,22 +489,20 @@ function robotParser(robotJson) {
 	});
 
 	const allJointDatas = (robotJson.joints || []).filter((jointData) => jointData.name !== 'world_joint');
-	const rawConstraints = robotJson.constraints || [];
-	const hasExplicitFourBar = rawConstraints.some((constraintData) => constraintData.type === 'four-bar');
-
 	let autoFourBarConstraints = [];
-	const autoRemovedJointNames = new Set();
+	const removedJointNames = new Set();
 
-	if (!hasExplicitFourBar) {
-		const loops = detectAutoFourBarLoops(allJointDatas);
-		autoFourBarConstraints = loops.map((loop, idx) => buildAutoFourBarConstraint(loop, idx + 1));
-		autoFourBarConstraints.forEach((constraint) => {
-			autoRemovedJointNames.add(constraint.closingJointName);
+	const loops = detectBidirectionalFourBarLoops(allJointDatas);
+	const autoLoops = loops.length > 0 ? loops : detectLegacyFourBarLoops(allJointDatas);
+	autoFourBarConstraints = autoLoops.map((loop, idx) => buildAutoFourBarConstraint(loop, idx + 1));
+	autoFourBarConstraints.forEach((constraint) => {
+		(constraint.removedJointNames ?? []).forEach((jointName) => {
+			removedJointNames.add(jointName);
 		});
-	}
+	});
 
 	const effectiveJointDatas = allJointDatas.filter(
-		(jointData) => !autoRemovedJointNames.has(jointData.name),
+		(jointData) => !removedJointNames.has(jointData.name),
 	);
 
 	effectiveJointDatas.forEach(jointData => {
@@ -172,24 +522,31 @@ function robotParser(robotJson) {
 		robot.jointMap.set(joint.name, joint);
 	});
 
-	const effectiveConstraints = rawConstraints.concat(
-		autoFourBarConstraints.map((constraint) => {
-			const { closingJointName, ...rest } = constraint;
-			return rest;
-		}),
-	);
+	const effectiveConstraints = autoFourBarConstraints.map((constraint) => {
+		const { removedJointNames: _removedJointNames, ...rest } = constraint;
+		return rest;
+	});
 
 	effectiveConstraints.forEach(constraintData => {
 		let constraint;
 		if (constraintData.type === "four-bar") {
+			const {
+				groundOffset,
+				length,
+				groundClosingJoint,
+				drivenClosingJoint,
+			} = resolveFourBarConstraintGeometry(constraintData, allJointDatas);
+
 			constraint = new _FourBarConstraint(
 				constraintData.name,
 				constraintData.type,
 				constraintData.joint,
 				constraintData.ground,
-				constraintData.gound_offset,
-				constraintData.length,
-				constraintData.init_angle
+				groundOffset,
+				length,
+				Number(constraintData.init_angle ?? 1.0),
+				groundClosingJoint,
+				drivenClosingJoint,
 			);
 		}
 		else if (constraintData.type === "triangle-prismatic") {
@@ -225,6 +582,7 @@ function robotParser(robotJson) {
 					actuatorData.tube_offset,
 					actuatorData.rod_offset,
 					actuatorData.limit,
+					actuatorData.redundants || [],
 					actuatorData.tube_visual,
 					actuatorData.rod_visual,
 				);
@@ -234,6 +592,15 @@ function robotParser(robotJson) {
 			robot.actuatorMap.set(actuator.name, actuator);
 		});
 	}
+
+	const { groups, groupMap, representativeMap } = buildRedundantActuatorGroups(robot.actuators);
+	robot.redundantActuatorGroups = groups;
+	robot.actuatorRedundantGroupMap = groupMap;
+	robot.actuatorRepresentativeMap = representativeMap;
+	const { solverActuators, solverMap, actuatorSolverNameMap } = buildSolverActuators(robot);
+	robot.solverActuators = solverActuators;
+	robot.solverActuatorMap = solverMap;
+	robot.actuatorSolverNameMap = actuatorSolverNameMap;
 
 	return robot;
 

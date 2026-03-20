@@ -149,8 +149,14 @@ function robotCreator(robot) {
 		}
 
 		let tubeJointModel = new THREE.Mesh();
-		tubeJointModel.geometry = tubeParentLinkJointModel.geometry.clone();
-		tubeJointModel.material = tubeParentLinkJointModel.material.clone();
+		if (tubeParentLinkJointModel.geometry && tubeParentLinkJointModel.material) {
+			tubeJointModel.geometry = tubeParentLinkJointModel.geometry.clone();
+			tubeJointModel.material = tubeParentLinkJointModel.material.clone();
+		}
+		else {
+			tubeJointModel.geometry = new THREE.SphereGeometry(0.2, 16, 8);
+			tubeJointModel.material = new THREE.MeshPhongMaterial({ color: 0x00aa00 });
+		}
 		tubeJointModel.material.color = new THREE.Color(0x00aa00);
 
 		tubeJointModel.position.set(actuator.tube_offset.x, actuator.tube_offset.y, actuator.tube_offset.z);
@@ -174,8 +180,14 @@ function robotCreator(robot) {
 		}
 
 		let rodJointModel = new THREE.Mesh();
-		rodJointModel.geometry = rodParentLinkJointModel.geometry.clone();
-		rodJointModel.material = rodParentLinkJointModel.material.clone();
+		if (rodParentLinkJointModel.geometry && rodParentLinkJointModel.material) {
+			rodJointModel.geometry = rodParentLinkJointModel.geometry.clone();
+			rodJointModel.material = rodParentLinkJointModel.material.clone();
+		}
+		else {
+			rodJointModel.geometry = new THREE.SphereGeometry(0.2, 16, 8);
+			rodJointModel.material = new THREE.MeshPhongMaterial({ color: 0x00aa00 });
+		}
 		rodJointModel.material.color = new THREE.Color(0x00aa00);
 
 		rodJointModel.position.set(actuator.rod_offset.x, actuator.rod_offset.y, actuator.rod_offset.z);
@@ -188,25 +200,51 @@ function robotCreator(robot) {
 
 		actuatorsTopo[actuator.name].rodJointModel = rodJointModel;
 		actuatorsTopo[actuator.name].tubeJointModel = tubeJointModel;
+	});
 
+	const solverActuators = robot.solverActuators || [];
+	const solverActuatorsTopo = robot.solverActuatorsTopo || {};
+	solverActuators.forEach(solverActuator => {
 
-		// console.log(actuatorsTopo);
-		for (const key in actuatorsTopo) {
-			if (Object.prototype.hasOwnProperty.call(actuatorsTopo, key)) {
-				const actuatorTopo = actuatorsTopo[key];
+		let tubeParentLink = getChildByName(robotModel, solverActuator.tube_parent);
+		let tubeJointModel = new THREE.Object3D();
+		tubeJointModel.position.set(
+			solverActuator.tube_offset.x,
+			solverActuator.tube_offset.y,
+			solverActuator.tube_offset.z,
+		);
+		tubeJointModel.visible = false;
+		tubeJointModel.name = solverActuator.name + "_tubeJointModel";
+		tubeParentLink.add(tubeJointModel);
+
+		let rodParentLink = getChildByName(robotModel, solverActuator.rod_parent);
+		let rodJointModel = new THREE.Object3D();
+		rodJointModel.position.set(
+			solverActuator.rod_offset.x,
+			solverActuator.rod_offset.y,
+			solverActuator.rod_offset.z,
+		);
+		rodJointModel.visible = false;
+		rodJointModel.name = solverActuator.name + "_rodJointModel";
+		rodParentLink.add(rodJointModel);
+
+		solverActuatorsTopo[solverActuator.name].rodJointModel = rodJointModel;
+		solverActuatorsTopo[solverActuator.name].tubeJointModel = tubeJointModel;
+
+		for (const key in solverActuatorsTopo) {
+			if (Object.prototype.hasOwnProperty.call(solverActuatorsTopo, key)) {
+				const actuatorTopo = solverActuatorsTopo[key];
 
 				actuatorTopo.topo.forEach(element => {
-					if (element.name == "joint_" + rodParentLink.name + "_" + actuator.name) {
+					if (element.name == "joint_" + rodParentLink.name + "_" + solverActuator.name) {
 						element.model = rodJointModel;
 					}
-					if (element.name == "joint_" + tubeParentLink.name + "_" + actuator.name) {
+					if (element.name == "joint_" + tubeParentLink.name + "_" + solverActuator.name) {
 						element.model = tubeJointModel;
 					}
 				});
-
 			}
 		}
-
 	});
 
 
@@ -329,7 +367,7 @@ function robotCreator(robot) {
 	// _actuatorSolver(robot, "hydraulic_cylinder_1", 4.0);
 
 	// inverse kinematics
-	// target T ∈ se2 se3
+	// target T 鈭?se2 se3
 
 
 
@@ -779,7 +817,7 @@ async function createLinkModel(link) {
 
 	}
 	else {
-		// console.error("不支持的关节几何类型：" + geometry_type);
+		// console.error("涓嶆敮鎸佺殑鍏宠妭鍑犱綍绫诲瀷锛? + geometry_type);
 	}
 
 }
@@ -787,3 +825,4 @@ async function createLinkModel(link) {
 
 
 export { robotCreator, robotCreatorWithObjText }
+

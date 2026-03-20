@@ -1,9 +1,27 @@
 {
-	"name": "机器人测试模型",
+	"name": "Shield Type Hydraulic Support Robot",
 	"links": [
+		{
+			"name": "ground",
+			"origin_translation": [0, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"visual": {
+				"origin_translation": [-5, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "box",
+					"x": 5,
+					"y": 0.25,
+					"z": 4
+				},
+				"material": {
+					"color": [120, 120, 120]
+				}
+			}
+		},
 
 		{
-			"name": "r",
+			"name": "rocker",
 			"origin_translation": [0, 0, 0],
 			"origin_orientation": [0, 0, 0],
 			"visual": {
@@ -13,7 +31,7 @@
 					"type": "box",
 					"x": 2.8284,
 					"y": 0.25,
-					"z": 0.5
+					"z": 4
 				},
 				"material": {
 					"color": [140, 80, 0]
@@ -22,7 +40,7 @@
 		},
 
 		{
-			"name": "up",
+			"name": "coupler",
 			"origin_translation": [0, 0, 0],
 			"origin_orientation": [0, 0, 0],
 			"visual": {
@@ -32,7 +50,7 @@
 					"type": "box",
 					"x": 4,
 					"y": 0.25,
-					"z": 0.5
+					"z": 4
 				},
 				"material": {
 					"color": [0, 80, 140]
@@ -41,7 +59,7 @@
 		},
 
 		{
-			"name": "l",
+			"name": "crank",
 			"origin_translation": [0, 0, 0],
 			"origin_orientation": [0, 0, 0],
 			"visual": {
@@ -51,7 +69,7 @@
 					"type": "box",
 					"x": 2.236,
 					"y": 0.25,
-					"z": 0.5
+					"z": 4
 				},
 				"material": {
 					"color": [80, 40, 80]
@@ -60,7 +78,7 @@
 		},
 
 		{
-			"name": "head",
+			"name": "top",
 			"origin_translation": [0, 0, 0],
 			"origin_orientation": [0, 0, 0],
 			"visual": {
@@ -70,7 +88,7 @@
 					"type": "box",
 					"x": 5,
 					"y": 0.25,
-					"z": 0.5
+					"z": 4
 				},
 				"material": {
 					"color": [0, 140, 80]
@@ -80,11 +98,18 @@
 	],
 
 	"joints": [
-		
 		{
-			"name": "joint_base_r",
+			"name": "joint_base_ground",
 			"parent": "base_link",
-			"child": "r",
+			"child": "ground",
+			"type": "fixed",
+			"origin_translation": [0, 0, 0],
+			"origin_orientation": [0, 0, 0]
+		},
+		{
+			"name": "joint_ground_rocker",
+			"parent": "ground",
+			"child": "rocker",
 			"type": "revolute",
 			"origin_translation": [0, 0, 0],
 			"origin_orientation": [0, 0, 0],
@@ -96,9 +121,9 @@
 		},
 
 		{
-			"name": "joint_r_up",
-			"parent": "r",
-			"child": "up",
+			"name": "joint_rocker_coupler",
+			"parent": "rocker",
+			"child": "coupler",
 			"type": "revolute",
 			"origin_translation": [2.8284, 0, 0],
 			"origin_orientation": [0, 0, 0],
@@ -110,9 +135,9 @@
 		},
 
 		{
-			"name": "joint_up_l",
-			"parent": "up",
-			"child": "l",
+			"name": "joint_coupler_crank",
+			"parent": "coupler",
+			"child": "crank",
 			"type": "revolute",
 			"origin_translation": [1, 0, 0],
 			"origin_orientation": [0, 0, 0],
@@ -124,9 +149,9 @@
 		},
 
 		{
-			"name": "joint_l_base",
-			"parent": "l",
-			"child": "base_link",
+			"name": "joint_ground_crank",
+			"parent": "ground",
+			"child": "crank",
 			"type": "revolute",
 			"origin_translation": [-1, 2, 0],
 			"origin_orientation": [0, 0, 0],
@@ -137,11 +162,25 @@
 			}
 		},
 
+		{
+			"name": "joint_crank_base",
+			"parent": "crank",
+			"child": "ground",
+			"type": "revolute",
+			"origin_translation": [2.236, 0, 0],
+			"origin_orientation": [0, 0, 0],
+			"axis": [0, 0, 1],
+			"limit": {
+				"lower": 0,
+				"upper": 3.14
+			}
+		},
+
 
 		{
-			"name": "joint_up_head",
-			"parent": "up",
-			"child": "head",
+			"name": "joint_coupler_top",
+			"parent": "coupler",
+			"child": "top",
 			"type": "revolute",
 			"origin_translation": [4, 0, 0],
 			"origin_orientation": [0, 0, 1],
@@ -155,16 +194,16 @@
 
 
 	],
-
 	"actuators": [
 
 		{
-			"name": "hydraulic_cylinder_1",
+			"name": "actuator_column_1",
 			"type": "actuator",
-			"tube_parent": "base_link",
-			"rod_parent": "head",
-			"tube_offset": [-2, 1, 0],
-			"rod_offset": [2, 0, 0],
+			"redundants": ["actuator_column_2"],
+			"tube_parent": "ground",
+			"rod_parent": "top",
+			"tube_offset": [-2, 1, 2],
+			"rod_offset": [2, 0, 2],
 			"limit": {
 				"lower": 4,
 				"upper": 6.0
@@ -196,12 +235,51 @@
 				}
 			}
 		},
-
 		{
-			"name": "hydraulic_cylinder_2",
+			"name": "actuator_column_2",
 			"type": "actuator",
-			"tube_parent": "up",
-			"rod_parent": "head",
+			"redundants": ["actuator_column_1"],
+			"tube_parent": "ground",
+			"rod_parent": "top",
+			"tube_offset": [-2, 1, -2],
+			"rod_offset": [2, 0, -2],
+			"limit": {
+				"lower": 4,
+				"upper": 6.0
+			},
+			"tube_visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "cylinder",
+					"r1": 0.2,
+					"r2": 0.2,
+					"h": 4
+				},
+				"material": {
+					"color": [140, 10, 0]
+				}
+			},
+			"rod_visual": {
+				"origin_translation": [0, 0, 0],
+				"origin_orientation": [0, 0, 0],
+				"geometry": {
+					"type": "cylinder",
+					"r1": 0.13,
+					"r2": 0.13,
+					"h": 4
+				},
+				"material": {
+					"color": [80, 80, 80]
+				}
+			}
+		},
+		{
+			"name": "actuator2",
+			"type": "actuator",
+			"redundants": [],
+			"tube_parent": "coupler",
+			"rod_parent": "top",
 			"tube_offset": [3, 0, 0],
 			"rod_offset": [1, 0, 0],
 			"limit": {
@@ -237,10 +315,5 @@
 		}
 
 
-	],
-
-	"redundants": [
-
 	]
-
 }

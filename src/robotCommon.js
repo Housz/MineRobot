@@ -1,4 +1,4 @@
-﻿import * as THREE from 'three';
+import * as THREE from 'three';
 
 class _Robot {
 	constructor(name, links, joints, constraints, actuators) {
@@ -16,6 +16,13 @@ class _Robot {
 		this.robotModel = {};
 		this.robotTopo = {};
 		this.actuatorsTopo = {};
+		this.solverActuators = [];
+		this.solverActuatorMap = new Map();
+		this.solverActuatorsTopo = {};
+		this.actuatorSolverNameMap = new Map();
+		this.redundantActuatorGroups = [];
+		this.actuatorRedundantGroupMap = new Map();
+		this.actuatorRepresentativeMap = new Map();
 
 	}
 }
@@ -80,7 +87,9 @@ class _FourBarConstraint {
 		ground,
 		gound_offset,
 		length,
-		init_angle
+		init_angle,
+		ground_closing_joint = null,
+		driven_closing_joint = null,
 	) {
 		this.name = name;
 		this.type = type;
@@ -89,8 +98,11 @@ class _FourBarConstraint {
 		this.gound_offset = gound_offset;
 		this.length = length;
 		this.init_angle = init_angle;
+		this.ground_closing_joint = ground_closing_joint;
+		this.driven_closing_joint = driven_closing_joint;
 	}
 }
+
 class _Actuator {
 	constructor(
 		name,
@@ -100,6 +112,7 @@ class _Actuator {
 		tube_offset,
 		rod_offset,
 		limit,
+		redundants = [],
 		tube_visual,
 		rod_visual,
 	) {
@@ -110,6 +123,7 @@ class _Actuator {
 		this.tube_offset = new _Translation(tube_offset[0], tube_offset[1], tube_offset[2]);
 		this.rod_offset = new _Translation(rod_offset[0], rod_offset[1], rod_offset[2]);
 		this.limit = new _Limit(limit.lower, limit.upper);
+		this.redundants = Array.isArray(redundants) ? [...redundants] : [];
 		this.tube_visual = tube_visual;
 		this.rod_visual = rod_visual;
 	}
@@ -319,16 +333,17 @@ function _buildRobotTopo(robot) {
 function _buildActuatorsTopo(robot) {
 
 	let robotTopo = robot.robotTopo;
+	const solverActuators = _getSolverActuators(robot);
 
-	let actuatorTopos = {};
-	robot.actuators.forEach(actuator => {
+	let solverActuatorTopos = {};
+	solverActuators.forEach(actuator => {
 
 		let tempTopo = copy_topo(robotTopo);
 
 		let tube_parent = getChildByName(tempTopo, actuator.tube_parent);
 		let rod_parent = getChildByName(tempTopo, actuator.rod_parent);
 
-		robot.actuators.forEach(otherActor => {
+		solverActuators.forEach(otherActor => {
 
 			if (otherActor.name == actuator.name)
 				return;
@@ -376,68 +391,87 @@ function _buildActuatorsTopo(robot) {
 				}
 				else { console.error("Actuator", actuator, "topo error!",); }
 			}
-			let pathRod2Tube = getTopoPaths(rod_parent, tube_parent);
-			let pathTube2Rod = getTopoPaths(tube_parent, rod_parent);
-			let numJointsInPath = 0;
-			if (pathRod2Tube.length > 0) {
-				pathRod2Tube[0].forEach(ele => {
-					if (ele.isJoint && !ele.fixed)
-						numJointsInPath++;
-				});
-			}
-			if (pathTube2Rod.length > 0) {
-				pathTube2Rod[0].forEach(ele => {
-					if (ele.isJoint && !ele.fixed)
-						numJointsInPath++;
-				});
-			}
-
-			actuatorTopos[actuator.name] = {};
-			actuatorTopos[actuator.name]["name"] = actuator.name;
-
-			if (numJointsInPath == 1) {
-				if (pathRod2Tube.length > 0) {
-					actuatorTopos[actuator.name]["topo"] = pathRod2Tube[0];
-
-					pathRod2Tube[0].forEach(ele => {
-						if (ele.isJoint && !ele.fixed) {
-							actuatorTopos[actuator.name]["driving"] = ele;
-							if (ele.isFourBarJoint)
-								actuatorTopos[actuator.name]["type"] = "tri_four_bar";
-							else
-								actuatorTopos[actuator.name]["type"] = "tri";
-						}
-					})
-				}
-				else if (pathTube2Rod.length > 0) {
-					actuatorTopos[actuator.name]["topo"] = pathTube2Rod[0];
-
-					pathTube2Rod[0].forEach(ele => {
-						if (ele.isJoint && !ele.fixed) {
-							actuatorTopos[actuator.name]["driving"] = ele;
-							if (ele.isFourBarJoint)
-								actuatorTopos[actuator.name]["type"] = "tri_four_bar";
-							else
-								actuatorTopos[actuator.name]["type"] = "tri";
-						}
-					})
-				}
-			}
-			else if (numJointsInPath == 4) {
-
-				let pathLoop = merge_topo_path(pathRod2Tube[0], pathTube2Rod[0]);
-
-				actuatorTopos[actuator.name]["topo"] = pathLoop;
-				actuatorTopos[actuator.name]["driving"] = pathLoop[1];
-				actuatorTopos[actuator.name]["type"] = "generalized_four_bar";
-			}
-
 		});
 
-		actuatorTopos[actuator.name]["rodJointModel"] = null;
-		actuatorTopos[actuator.name]["tubeJointModel"] = null;
+		let pathRod2Tube = getTopoPaths(rod_parent, tube_parent);
+		let pathTube2Rod = getTopoPaths(tube_parent, rod_parent);
+		let numJointsInPath = 0;
+		if (pathRod2Tube.length > 0) {
+			pathRod2Tube[0].forEach(ele => {
+				if (ele.isJoint && !ele.fixed)
+					numJointsInPath++;
+			});
+		}
+		if (pathTube2Rod.length > 0) {
+			pathTube2Rod[0].forEach(ele => {
+				if (ele.isJoint && !ele.fixed)
+					numJointsInPath++;
+			});
+		}
 
-	})
+		solverActuatorTopos[actuator.name] = {};
+		solverActuatorTopos[actuator.name]["name"] = actuator.name;
+		solverActuatorTopos[actuator.name]["solverName"] = actuator.name;
+
+		if (numJointsInPath == 1) {
+			if (pathRod2Tube.length > 0) {
+				solverActuatorTopos[actuator.name]["topo"] = pathRod2Tube[0];
+
+				pathRod2Tube[0].forEach(ele => {
+					if (ele.isJoint && !ele.fixed) {
+						solverActuatorTopos[actuator.name]["driving"] = ele;
+						if (ele.isFourBarJoint)
+							solverActuatorTopos[actuator.name]["type"] = "tri_four_bar";
+						else
+							solverActuatorTopos[actuator.name]["type"] = "tri";
+					}
+				})
+			}
+			else if (pathTube2Rod.length > 0) {
+				solverActuatorTopos[actuator.name]["topo"] = pathTube2Rod[0];
+
+				pathTube2Rod[0].forEach(ele => {
+					if (ele.isJoint && !ele.fixed) {
+						solverActuatorTopos[actuator.name]["driving"] = ele;
+						if (ele.isFourBarJoint)
+							solverActuatorTopos[actuator.name]["type"] = "tri_four_bar";
+						else
+							solverActuatorTopos[actuator.name]["type"] = "tri";
+					}
+				})
+			}
+		}
+		else if (numJointsInPath == 4) {
+
+			let pathLoop = merge_topo_path(pathRod2Tube[0], pathTube2Rod[0]);
+
+			solverActuatorTopos[actuator.name]["topo"] = pathLoop;
+			solverActuatorTopos[actuator.name]["driving"] = pathLoop[1];
+			solverActuatorTopos[actuator.name]["type"] = "generalized_four_bar";
+		}
+
+		solverActuatorTopos[actuator.name]["rodJointModel"] = null;
+		solverActuatorTopos[actuator.name]["tubeJointModel"] = null;
+	});
+
+	robot.solverActuatorsTopo = solverActuatorTopos;
+
+	let actuatorTopos = {};
+	robot.actuators.forEach(actuator => {
+		const representativeName = _getActuatorRepresentativeName(robot, actuator.name);
+		const solverName = _getActuatorSolverName(robot, actuator.name);
+		const solverTopo = solverActuatorTopos[solverName] || {};
+		actuatorTopos[actuator.name] = {
+			name: actuator.name,
+			representative: representativeName,
+			solverName: solverName,
+			type: solverTopo.type || null,
+			driving: solverTopo.driving || null,
+			topo: solverTopo.topo || [],
+			rodJointModel: null,
+			tubeJointModel: null,
+		};
+	});
 
 	return actuatorTopos;
 
@@ -483,11 +517,45 @@ function _updateActuatorsModel(robot) {
 
 }
 
+function _getActuatorRepresentativeName(robot, actuatorName) {
+	return robot.actuatorRepresentativeMap.get(actuatorName) || actuatorName;
+}
+
+function _getActuatorSolverName(robot, actuatorName) {
+	return robot.actuatorSolverNameMap.get(actuatorName) || actuatorName;
+}
+
+function _getRepresentativeActuators(robot) {
+	const representatives = [];
+	const seen = new Set();
+
+	robot.actuators.forEach((actuator) => {
+		const representativeName = _getActuatorRepresentativeName(robot, actuator.name);
+		if (seen.has(representativeName)) {
+			return;
+		}
+
+		seen.add(representativeName);
+		representatives.push(robot.actuatorMap.get(representativeName) || actuator);
+	});
+
+	return representatives;
+}
+
+function _getSolverActuators(robot) {
+	if (robot.solverActuators && robot.solverActuators.length > 0) {
+		return robot.solverActuators;
+	}
+
+	return robot.actuators;
+}
+
 function _actuatorSolver(robot, actuatorName, targetLength) {
 
-	let actuatorsTopo = robot.actuatorsTopo;
+	let solverActuatorsTopo = robot.solverActuatorsTopo || {};
+	let solverName = _getActuatorSolverName(robot, actuatorName);
 
-	let actuatorTopo = actuatorsTopo[actuatorName];
+	let actuatorTopo = solverActuatorsTopo[solverName];
 
 	let result;
 	if (actuatorTopo.type == "A") {
@@ -512,7 +580,6 @@ function _actuatorSolver(robot, actuatorName, targetLength) {
 
 	}
 	else if (actuatorTopo.type == "generalized_four_bar") {
-
 		let base_driving_joint_model = actuatorTopo.driving.path[3].model
 		let driving_floating_joint_model = actuatorTopo.topo[3].model;
 		let floating_drived_joint_model = actuatorTopo.topo[5].model;
@@ -607,7 +674,9 @@ function _IKSolver(robot, EEModel, targetWorldMatrix) {
 	const tolerance = 1e-6;
 	let nfev = 0;
 
-	let currentLengths = robot.actuators.map((actuator) => {
+	const optimizationActuators = _getRepresentativeActuators(robot);
+
+	let currentLengths = optimizationActuators.map((actuator) => {
 		const actuatorTopo = robot.actuatorsTopo[actuator.name];
 		return _getWorldDistance(actuatorTopo.rodJointModel, actuatorTopo.tubeJointModel);
 	});
@@ -615,8 +684,8 @@ function _IKSolver(robot, EEModel, targetWorldMatrix) {
 	for (let iter = 0; iter < maxIterations; iter++) {
 		const nextLengths = [];
 
-		for (let i = 0; i < robot.actuators.length; i++) {
-			const actuator = robot.actuators[i];
+		for (let i = 0; i < optimizationActuators.length; i++) {
+			const actuator = optimizationActuators[i];
 			const res = optOneActuator(actuator);
 			nfev += res.nfev;
 			nextLengths.push(res.x);
@@ -957,13 +1026,16 @@ function solveFourBar(driving_angle, ground_len, driving_len, floating_len, driv
 	let a = driving_angle;
 
 	const diag_len = Math.sqrt(ground_len * ground_len + driving_len * driving_len - 2 * ground_len * driving_len * Math.cos(a));
+	const safeDiagLen = Math.max(diag_len, 1e-12);
 
 	const sinA = Math.sin(a);
-	const sinB = (ground_len * sinA) / diag_len;
+	const sinB = Math.min(Math.max((ground_len * sinA) / safeDiagLen, -1), 1);
 	const b = Math.asin(sinB);
 
-	const d = Math.acos((floating_len * floating_len + drived_len * drived_len - diag_len * diag_len) / (2 * floating_len * drived_len));
-	const bb = Math.acos((floating_len * floating_len + diag_len * diag_len - drived_len * drived_len) / (2 * floating_len * diag_len));
+	const cosD = Math.min(Math.max((floating_len * floating_len + drived_len * drived_len - diag_len * diag_len) / (2 * floating_len * drived_len), -1), 1);
+	const cosBB = Math.min(Math.max((floating_len * floating_len + diag_len * diag_len - drived_len * drived_len) / (2 * floating_len * safeDiagLen), -1), 1);
+	const d = Math.acos(cosD);
+	const bb = Math.acos(cosBB);
 
 	let result = {
 		driving_floating_angle: Math.PI - b - bb,
@@ -1004,4 +1076,6 @@ export {
 	getEuclideanLength,
 	solveFourBar
 }
+
+
 
