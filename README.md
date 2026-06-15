@@ -1,6 +1,6 @@
 # MineRobot
 
-This repository is the open-source demo for the paper *MineRobot: A Unified Framework for Kinematics Modeling and Solving of Underground Mining Robots in Virtual Environments*.
+This repository is the open-source demo for the paper *MineRobot: An Actuator-Centered Kinematic Modeling and Solving Framework for Underground Mining Robots*.
 
 It is a lightweight implementation written in pure JavaScript and can be used interactively in a web browser.
 
