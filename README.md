@@ -14,6 +14,12 @@ It is a lightweight implementation written in pure JavaScript and can be used in
   <img src="./imgs/Top-Coal-Caving-Hydraulic-Support-Robot.gif" width="30%" alt="Top-Coal-Caving Hydraulic Support Robot">
 </p>
 
+<p align="center">
+  <img src="./imgs/rh-fk.gif" width="30%" alt="roadheader fk">
+  <img src="./imgs/rh-ik.gif" width="30%" alt="roadheader ik">
+  <img src="./imgs/rh-traj.gif" width="30%" alt="roadheader trajectory">
+</p>
+
 The demo supports:
 
 - Interactive adjustment of actuator lengths to test forward kinematics
