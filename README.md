@@ -6,6 +6,8 @@ It is a lightweight implementation written in pure JavaScript and can be used in
 
 - GitHub: <https://github.com/Housz/MineRobot>
 - Online demo: <https://housz.github.io/MineRobot/>
+  - **Shield-Type Hydraulic Support Robot:** [Online Demo](https://housz.github.io/MineRobot/demos/Shield-Type-Hydraulic-Support-Robot/index.html) | [MRDF File](https://github.com/Housz/MineRobot/blob/main/demos/Shield-Type-Hydraulic-Support-Robot/hydraulic_support.json)
+  - **Top-Coal-Caving Hydraulic Support Robot:** [Online Demo](https://housz.github.io/MineRobot/demos/Top-Coal-Caving-Hydraulic-Support-Robot/index.html) | [MRDF File](https://github.com/Housz/MineRobot/blob/main/demos/Top-Coal-Caving-Hydraulic-Support-Robot/hydraulic_support.json)
 
 Due to copyright restrictions, this demo only provides the key structures of two hydraulic support robots built with basic shapes.
 
